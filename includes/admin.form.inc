@@ -23,6 +23,9 @@ function islandora_video_admin(array $form, array &$form_state) {
   $viewer_table = islandora_viewers_form('islandora_video_viewers', 'video/mp4');
   $form += $viewer_table;
 
+  $viewer_table_streaming = islandora_video_streaming_viewer_form('islandora_video_streaming_viewers', 'application/javascript');
+  //$viewer_table_streaming = islandora_viewers_form('islandora_video_streaming_viewers', 'application/javascript');
+  $form['streaming_viewers'] = $viewer_table_streaming;
   // Viewer stuff.
   $form['actions'] = array('#type' => 'actions');
   $form['actions']['reset'] = array(

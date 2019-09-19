@@ -23,7 +23,7 @@ function template_preprocess_islandora_video(array &$variables) {
   try {
     if (isset($object['DC']) && islandora_datastream_access(ISLANDORA_VIEW_OBJECTS, $object['DC'])) {
       $dc = $object['DC']->content;
-      $dc_object = DublinCore::importFromXmlString($dc);
+      $dc_object = DublinCore::importFromXMLString($dc);
     }
   }
   catch (Exception $e) {
@@ -51,7 +51,6 @@ function template_preprocess_islandora_video(array &$variables) {
   }
 
   $mime = 'video/mp4';
-
   $video_params = array(
     'pid' => $object->id,
   );
@@ -69,8 +68,21 @@ function template_preprocess_islandora_video(array &$variables) {
       'tn' => url("islandora/object/{$object->id}/datastream/TN/view", array('absolute' => TRUE)),
     );
   }
-
-  $viewer = islandora_get_viewer($video_params, 'islandora_video_viewers', $object);
+  
+  // KALTURA_INFO
+  try {
+    if (isset($object['KALTURA_INFO']) && islandora_datastream_access(ISLANDORA_VIEW_OBJECTS, $object['KALTURA_INFO'])) {
+      $kaltura = $object['KALTURA_INFO']->content;
+      $video_params += json_decode($kaltura, true);
+    }
+  }
+  catch (Exception $e) {
+    drupal_set_message(t('Error retriveing object %s %t', array('%s' => $object->id, '%t' => $e->getMessage())), 'error', FALSE);
+  }
+  
+  // TODO: add a if-condition here to override streaming player setting
+  $viewer = islandora_get_viewer($video_params, 'islandora_video_streaming_viewers', $object);
+  //$viewer = islandora_get_viewer($video_params, 'islandora_video_viewers', $object);
   $variables['islandora_content'] = '';
   if ($viewer) {
     $variables['islandora_content'] = $viewer;
