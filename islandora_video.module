@@ -33,6 +33,11 @@ function islandora_video_theme($existing, $type, $theme, $path) {
       'pattern' => 'islandora_video__',
       'variables' => array('object' => NULL),
     ),
+      'islandora_kaltura' => array(
+          'template' => 'theme/islandora-kaltura',
+          'file' => 'theme/theme.inc',
+          'variables' => array('object' => NULL, 'params' => NULL),
+      ),
   );
 }
 
@@ -138,6 +143,7 @@ function islandora_video_islandora_sp_videocmodel_islandora_ingest_steps() {
  */
 function islandora_video_islandora_sp_videocmodel_islandora_derivative() {
   $derivatives = array();
+  
   if (variable_get('islandora_video_make_thumbnail_locally', TRUE)) {
     $derivatives[] = array(
       'source_dsid' => 'OBJ',
@@ -182,6 +188,7 @@ function islandora_video_islandora_sp_videocmodel_islandora_derivative() {
       'file' => drupal_get_path('module', 'islandora_video') . '/includes/derivatives.inc',
     );
   }
+
   return $derivatives;
 }
 

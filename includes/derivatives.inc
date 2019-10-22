@@ -27,11 +27,12 @@ function islandora_video_create_mp4(AbstractObject $object, $force = FALSE) {
     $archival_path = drupal_realpath($archival_file['file']->uri);
     $out_file = $archival_path . '.mp4';
     $audio_codec = variable_get('islandora_video_mp4_audio_codec', 'aac');
-
+    
     $ffmpeg_executable = variable_get('islandora_video_ffmpeg_path', 'ffmpeg');
     $command = "$ffmpeg_executable -i $archival_path -f mp4 -vcodec libx264 -preset medium -vf format=yuv420p -acodec $audio_codec -strict -2 -ab 128k -ac 2 -async 1 -movflags faststart $out_file";
     $return_value = FALSE;
     exec($command, $output, $return_value);
+    islandora_video_upload_to_Kaltura($object, $out_file);
     file_delete($archival_file['file']);
     if ($return_value === 0) {
       return islandora_video_add_datastream($object, 'MP4', $out_file);
@@ -50,6 +51,74 @@ function islandora_video_create_mp4(AbstractObject $object, $force = FALSE) {
       );
     }
   }
+}
+
+/**
+ * Implement Kaltura video upload  
+ * @param AbstractObject $object 
+ * @param String $filePath video file path
+ */
+function islandora_video_upload_to_Kaltura($object, $filePath) {
+  $kcDir = libraries_get_Path('KalturaClient');
+  require_once $kcDir.'/KalturaClient.php';
+  
+  $config = new KalturaConfiguration("2592481");
+  $client = new KalturaClient($config);
+  $ks = $client->session->start("1cde26bbb40938bedd8fff332fab1a51", "cas386@pitt.edu", KalturaSessionType::ADMIN, 2592481);
+  $client->setKS($ks);
+
+  // Create an Upload Token
+  $uploadToken = new KalturaUploadToken();
+    try {
+    $result = $client->uploadToken->add($uploadToken);
+  } catch (Exception $e) {
+    drupal_set_message($e->getMessage());
+  }
+  
+  // Send the Data
+  if ($result) {
+      $uploadTokenId = $result->id;
+      drupal_set_message($uploadTokenId);
+  }
+  
+  $resume = false;
+  $finalChunk = true;
+  $resumeAt = -1;
+  
+  try {
+    $result = $client->uploadToken->upload($uploadTokenId, $filePath, $resume, $finalChunk, $resumeAt);
+  } catch (Exception $e) {
+      drupal_set_message($e->getMessage());
+  }
+  // Creating the Kaltura Media Entry
+  $mediaEntry = new KalturaMediaEntry();
+  $mediaEntry->name = $filePath;
+  $mediaEntry->mediaType = KalturaMediaType::VIDEO;
+
+  $entry = $client->media->add($mediaEntry);
+  
+  // Attach the Video
+  $entryId = $entry->id;
+  $resource = new KalturaUploadedFileTokenResource();
+  $resource->token = $uploadTokenId;
+
+  try {
+    $result = $client->media->addContent($entryId, $resource);
+    $streaming['entry_id'] = $result->id;
+  } catch (Exception $e) {
+    drupal_set_message($e->getMessage());
+  }
+  
+  $version = -1;
+  $result = $client->media->get($entryId, $version);
+  
+  try {
+    $result = $client->media->get($entryId, $version);
+  } catch (Exception $e) {
+    echo $e->getMessage();
+  }
+
+  islandora_video_add_datastream($object, 'KALTURA_INFO', NULL, FALSE, json_encode($streaming));
 }
 
 /**
@@ -227,7 +296,7 @@ function islandora_video_create_thumbnail(AbstractObject $object, $force = FALSE
  *
  * @see hook_islandora_derivative()
  */
-function islandora_video_add_datastream(AbstractObject $object, $datastream_id, $file_uri, $delete_file = TRUE) {
+function islandora_video_add_datastream($object, $datastream_id, $file_uri, $delete_file = TRUE, $fileContent = NULL) {
   try {
     $ingest = !isset($object[$datastream_id]);
     $mime_detector = new MimeDetect();
@@ -242,9 +311,15 @@ function islandora_video_add_datastream(AbstractObject $object, $datastream_id, 
     if ($ds->mimetype != $mime_detector->getMimetype($file_uri)) {
       $ds->mimetype = $mime_detector->getMimetype($file_uri);
     }
-    $ds->setContentFromFile($file_uri);
+    
+    if ($fileContent) {
+      $ds->setContentFromString($fileContent);
+    } else {
+      $ds->setContentFromFile($file_uri);
+    }
+    
     if ($ingest) {
-      $object->ingestDatastream($ds);
+        $object->ingestDatastream($ds);
     }
     if ($delete_file && file_exists($file_uri)) {
       file_unmanaged_delete($file_uri);
