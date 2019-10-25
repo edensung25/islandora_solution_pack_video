@@ -32,7 +32,8 @@ function islandora_video_create_mp4(AbstractObject $object, $force = FALSE) {
     $command = "$ffmpeg_executable -i $archival_path -f mp4 -vcodec libx264 -preset medium -vf format=yuv420p -acodec $audio_codec -strict -2 -ab 128k -ac 2 -async 1 -movflags faststart $out_file";
     $return_value = FALSE;
     exec($command, $output, $return_value);
-    islandora_video_upload_to_Kaltura($object, $out_file);
+
+    islandora_video_streaming_upload_to_Kaltura($object, $out_file);
     file_delete($archival_file['file']);
     if ($return_value === 0) {
       return islandora_video_add_datastream($object, 'MP4', $out_file);
@@ -311,13 +312,11 @@ function islandora_video_add_datastream($object, $datastream_id, $file_uri, $del
     if ($ds->mimetype != $mime_detector->getMimetype($file_uri)) {
       $ds->mimetype = $mime_detector->getMimetype($file_uri);
     }
-    
     if ($fileContent) {
       $ds->setContentFromString($fileContent);
     } else {
       $ds->setContentFromFile($file_uri);
     }
-    
     if ($ingest) {
         $object->ingestDatastream($ds);
     }

@@ -82,7 +82,11 @@ function template_preprocess_islandora_video(array &$variables) {
   
   // TODO: add a if-condition here to override streaming player setting
   $viewer = islandora_get_viewer($video_params, 'islandora_video_streaming_viewers', $object);
-  //$viewer = islandora_get_viewer($video_params, 'islandora_video_viewers', $object);
+  // Fallback to video.js viewer
+  if (!$viewer) {
+      $viewer = islandora_get_viewer($video_params, 'islandora_video_viewers', $object);
+  }
+  
   $variables['islandora_content'] = '';
   if ($viewer) {
     $variables['islandora_content'] = $viewer;
